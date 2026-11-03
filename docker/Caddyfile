@@ -1,0 +1,29 @@
+{
+    email admin@village.local
+}
+
+vms.village.local {
+    # Security Headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    }
+
+    # Supabase Auth routing
+    handle /api/auth/* {
+        reverse_proxy supabase-auth:9999
+    }
+
+    # Supabase Storage routing
+    handle /storage/v1/* {
+        reverse_proxy supabase-storage:5000
+    }
+
+    # Next.js Application routing
+    handle /* {
+        reverse_proxy nextjs-app:3000
+    }
+}

@@ -1,26 +1,342 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  --font-sans: var(--font-kanit), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-mono), monospace;
 
-@theme inline {
+  /* Theme token bindings */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-subtle: var(--primary-subtle);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-hover: var(--destructive-hover);
+  --color-destructive-subtle: var(--destructive-subtle);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-warning: var(--warning);
+  --color-warning-hover: var(--warning-hover);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-warning-foreground: var(--warning-foreground);
+
+  --color-success: var(--success);
+  --color-success-hover: var(--success-hover);
+  --color-success-subtle: var(--success-subtle);
+  --color-success-foreground: var(--success-foreground);
+
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Light Mode Tokens (Strictly White Theme Only) */
+:root {
+  color-scheme: light;
+  --background: #f8faff;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+
+  /* Primary Brand (Civic Cobalt) */
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --primary-subtle: #eff6ff;
+  --primary-foreground: #ffffff;
+
+  /* Secondary & Muted */
+  --secondary: #f1f5f9;
+  --secondary-hover: #e2e8f0;
+  --secondary-foreground: #1e293b;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+
+  /* Accent & Highlight */
+  --accent: #eff6ff;
+  --accent-foreground: #1d4ed8;
+
+  /* Semantic Statuses */
+  --destructive: #e11d48;
+  --destructive-hover: #be123c;
+  --destructive-subtle: #fff1f2;
+  --destructive-foreground: #ffffff;
+
+  --warning: #d97706;
+  --warning-hover: #b45309;
+  --warning-subtle: #fffbeb;
+  --warning-foreground: #ffffff;
+
+  --success: #059669;
+  --success-hover: #047857;
+  --success-subtle: #ecfdf5;
+  --success-foreground: #ffffff;
+
+  /* Borders, Inputs & Focus */
+  --border: #e2e8f0;
+  --border-subtle: #f1f5f9;
+  --input: #e2e8f0;
+  --input-focus: #3b82f6;
+  --ring: #3b82f6;
+  --ring-offset: #ffffff;
+
+  /* Scrollbar Tokens */
+  --scrollbar-thumb: #94a3b8;
+  --scrollbar-thumb-hover: #64748b;
+  --scrollbar-track: transparent;
+}
+
+/* Text Selection */
+::selection {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+/* Base Body Setup */
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-kanit), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+}
+
+/* Standard and WebKit Custom Scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* Accessibility: Respect Reduced Motion (WCAG 2.2.2 / 2.3.3) */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  /* Disable disorienting scale, translation, rotation, and pulsing effects */
+  .animate-spin,
+  .animate-pulse,
+  .animate-ping,
+  [class*="animate-in"],
+  [class*="animate-out"],
+  [class*="slide-in"],
+  [class*="slide-out"],
+  [class*="zoom-in"],
+  [class*="zoom-out"] {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transform: none !important;
+  }
+
+  /* Preserve gentle state transitions so screen readers and cognitive readers maintain continuous context */
+  *,
+  *::before,
+  *::after {
+    transition-property: opacity, background-color, color, border-color !important;
+    transition-duration: 150ms !important;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* -------------------------------------------------------------
+ * SweetAlert2 Custom "Modern Civic Workspace" Theme
+ * ------------------------------------------------------------- */
+.swal2-container {
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  background: rgba(15, 23, 42, 0.45) !important;
+  z-index: 99999 !important;
 }
+
+.swal2-popup,
+.vms-swal-popup {
+  border-radius: 28px !important;
+  padding: 2rem 1.75rem !important;
+  font-family: var(--font-kanit), system-ui, -apple-system, sans-serif !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.12) !important;
+  max-width: 440px !important;
+  width: 92% !important;
+}
+
+.swal2-title,
+.vms-swal-title {
+  font-family: var(--font-kanit), system-ui, -apple-system, sans-serif !important;
+  font-size: 1.25rem !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  letter-spacing: -0.015em !important;
+  padding: 0.5rem 0 0 0 !important;
+  line-height: 1.35 !important;
+}
+
+.swal2-html-container,
+.vms-swal-html {
+  font-family: var(--font-kanit), system-ui, -apple-system, sans-serif !important;
+  font-size: 0.875rem !important;
+  color: #64748b !important;
+  line-height: 1.6 !important;
+  margin: 0.5rem 0 0 0 !important;
+}
+
+.swal2-actions,
+.vms-swal-actions {
+  gap: 0.75rem !important;
+  margin-top: 1.75rem !important;
+  padding: 0 !important;
+  width: 100% !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.swal2-confirm,
+.vms-swal-confirm {
+  min-height: 44px !important;
+  padding: 0.625rem 1.5rem !important;
+  border-radius: 12px !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  font-family: var(--font-kanit), system-ui, -apple-system, sans-serif !important;
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2) !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: all 150ms ease-in-out !important;
+  outline: none !important;
+}
+
+.swal2-confirm:hover,
+.vms-swal-confirm:hover {
+  background-color: #1d4ed8 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
+}
+
+.swal2-confirm:active,
+.vms-swal-confirm:active {
+  transform: scale(0.98) !important;
+}
+
+.swal2-confirm:focus-visible,
+.vms-swal-confirm:focus-visible {
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #2563eb !important;
+}
+
+.swal2-cancel,
+.vms-swal-cancel {
+  min-height: 44px !important;
+  padding: 0.625rem 1.5rem !important;
+  border-radius: 12px !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  font-family: var(--font-kanit), system-ui, -apple-system, sans-serif !important;
+  background-color: #f1f5f9 !important;
+  color: #334155 !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+  transition: all 150ms ease-in-out !important;
+  outline: none !important;
+}
+
+.swal2-cancel:hover,
+.vms-swal-cancel:hover {
+  background-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+.swal2-cancel:active,
+.vms-swal-cancel:active {
+  transform: scale(0.98) !important;
+}
+
+.swal2-cancel:focus-visible,
+.vms-swal-cancel:focus-visible {
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #94a3b8 !important;
+}
+
+/* SweetAlert2 Icon Customization */
+.swal2-icon {
+  border-width: 2.5px !important;
+  margin: 0.5rem auto 0.75rem auto !important;
+  transform: scale(0.85) !important;
+}
+
+.swal2-icon.swal2-success {
+  border-color: #10b981 !important;
+  color: #10b981 !important;
+}
+
+.swal2-icon.swal2-success [class^="swal2-success-line"] {
+  background-color: #10b981 !important;
+}
+
+.swal2-icon.swal2-success .swal2-success-ring {
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+.swal2-icon.swal2-warning {
+  border-color: #f59e0b !important;
+  color: #f59e0b !important;
+}
+
+.swal2-icon.swal2-error {
+  border-color: #ef4444 !important;
+  color: #ef4444 !important;
+}
+
+.swal2-icon.swal2-error [class^="swal2-x-mark-line"] {
+  background-color: #ef4444 !important;
+}
+
+.swal2-icon.swal2-info {
+  border-color: #3b82f6 !important;
+  color: #3b82f6 !important;
+}
+
+.swal2-icon.swal2-question {
+  border-color: #6366f1 !important;
+  color: #6366f1 !important;
+}
+
+

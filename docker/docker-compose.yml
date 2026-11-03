@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  # 1. Reverse Proxy & Auto-SSL
+  reverse-proxy:
+    image: caddy:2-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - nextjs-app
+      - supabase-auth
+      - supabase-storage
+    networks:
+      - vms-net
+
+  # 2. Next.js 16 Application
+  nextjs-app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.app
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      - SUPABASE_AUTH_URL=http://supabase-auth:9999
+      - SUPABASE_STORAGE_URL=http://supabase-storage:5000
+      - FIELD_ENCRYPTION_KEY=${FIELD_ENCRYPTION_KEY}
+      - BLIND_INDEX_PEPPER=${BLIND_INDEX_PEPPER}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - vms-net
+
+  # 3. PostgreSQL 15+ Database
+  postgres:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vms_db}
+      POSTGRES_USER: ${POSTGRES_USER:-vms_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_vms_password_2026}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vms_admin} -d ${POSTGRES_DB:-vms_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vms-net
+
+  # 4. Supabase GoTrue Auth
+  supabase-auth:
+    image: supabase/gotrue:v2.158.0
+    restart: always
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      GOTRUE_DB_DRIVER: postgres
+      DATABASE_URL: postgresql://${POSTGRES_USER:-vms_admin}:${POSTGRES_PASSWORD:-secure_vms_password_2026}@postgres:5432/${POSTGRES_DB:-vms_db}?sslmode=disable
+      GOTRUE_SITE_URL: ${APP_SITE_URL:-http://localhost:3000}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET:-vms_super_secret_jwt_key_2026}
+      GOTRUE_JWT_EXP: 3600
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - vms-net
+
+  # 5. Supabase Storage Engine
+  supabase-storage:
+    image: supabase/storage-api:v1.11.0
+    restart: always
+    environment:
+      ANON_KEY: ${STORAGE_ANON_KEY:-anon_key}
+      SERVICE_KEY: ${STORAGE_SERVICE_KEY:-service_key}
+      POSTGREST_URL: http://postgres:5432
+      PGRST_JWT_SECRET: ${JWT_SECRET:-vms_super_secret_jwt_key_2026}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-vms_admin}:${POSTGRES_PASSWORD:-secure_vms_password_2026}@postgres:5432/${POSTGRES_DB:-vms_db}
+      FILE_SIZE_LIMIT: 52428800
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+    volumes:
+      - storage_data:/var/lib/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - vms-net
+
+volumes:
+  postgres_data:
+  storage_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  vms-net:
+    driver: bridge

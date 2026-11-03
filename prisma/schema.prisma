@@ -1,0 +1,357 @@
+datasource db {
+  provider  = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -------------------------------------------------------------
+// 1. Identity, Access & Village Tenancy
+// -------------------------------------------------------------
+
+model Village {
+  id           String   @id @default(uuid()) @db.Uuid
+  code         String   @unique @db.VarChar(20)
+  name         String   @db.VarChar(150)
+  moo          Int      @default(0)
+  subdistrict  String   @db.VarChar(100)
+  district     String   @db.VarChar(100)
+  province     String   @db.VarChar(100)
+  postalCode   String   @map("postal_code") @db.VarChar(10)
+  phoneNumber  String?  @map("phone_number") @db.VarChar(30)
+  logoUrl      String?  @map("logo_url")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  settings     VillageSetting[]
+  userAccesses VillageUserAccess[]
+  houses       House[]
+  households   Household[]
+  persons      Person[]
+  files        File[]
+  auditLogs    AuditLog[]
+  events       HouseholdEvent[]
+
+  @@map("villages")
+}
+
+model VillageSetting {
+  id           String   @id @default(uuid()) @db.Uuid
+  villageId    String   @map("village_id") @db.Uuid
+  settingKey   String   @map("setting_key") @db.VarChar(100)
+  settingValue Json     @map("setting_value")
+
+  village      Village  @relation(fields: [villageId], references: [id], onDelete: Cascade)
+
+  @@unique([villageId, settingKey])
+  @@map("village_settings")
+}
+
+model User {
+  id          String   @id @db.Uuid // Mirrors Supabase auth.users(id)
+  email       String   @unique @db.VarChar(255)
+  fullName    String   @map("full_name") @db.VarChar(150)
+  phoneNumber String?  @map("phone_number") @db.VarChar(20)
+  avatarUrl   String?  @map("avatar_url")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Security PIN (Per-User PBKDF2-HMAC-SHA512)
+  securityPinHash     String?   @map("security_pin_hash") @db.VarChar(255)
+  securityPinSalt     String?   @map("security_pin_salt") @db.VarChar(64)
+  pinFailedAttempts   Int       @default(0) @map("pin_failed_attempts")
+  pinLockedUntil      DateTime? @map("pin_locked_until") @db.Timestamptz
+
+  userRoles       UserRole[]
+  villageAccesses VillageUserAccess[]
+  createdPersons  Person[]            @relation("PersonCreator")
+  updatedPersons  Person[]            @relation("PersonUpdater")
+  recordedEvents  HouseholdEvent[]
+  uploadedFiles   File[]
+  auditLogs       AuditLog[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique @db.VarChar(50) // e.g. SYSTEM_ADMIN, VILLAGE_ADMIN, STAFF, VIEWER
+  displayName String   @map("display_name") @db.VarChar(100)
+  description String?
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique @db.VarChar(100) // e.g. person.create, household.transfer
+  module      String   @db.VarChar(50)
+  description String   @db.VarChar(255)
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String     @map("role_id") @db.Uuid
+  permissionId String     @map("permission_id") @db.Uuid
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId String @map("user_id") @db.Uuid
+  roleId String @map("role_id") @db.Uuid
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model VillageUserAccess {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  villageId String   @map("village_id") @db.Uuid
+  isDefault Boolean  @default(false) @map("is_default")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  village   Village  @relation(fields: [villageId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, villageId])
+  @@map("village_user_access")
+}
+
+// -------------------------------------------------------------
+// 2. Population Domain
+// -------------------------------------------------------------
+
+model Person {
+  id                   String    @id @default(uuid()) @db.Uuid
+  villageId            String    @map("village_id") @db.Uuid
+  personCode           String    @unique @map("person_code") @db.VarChar(30)
+  nationalIdEncrypted  String    @map("national_id_encrypted")
+  nationalIdBindex     String    @unique @map("national_id_bindex") @db.VarChar(64)
+  nationalIdMasked     String    @map("national_id_masked") @db.VarChar(20)
+  title                String    @db.VarChar(30)
+  firstName            String    @map("first_name") @db.VarChar(100)
+  lastName             String    @map("last_name") @db.VarChar(100)
+  gender               String    @db.VarChar(20) // MALE, FEMALE, OTHER
+  birthDate            DateTime  @map("birth_date") @db.Date
+  nationality          String    @default("ไทย") @db.VarChar(50)
+  religion             String?   @db.VarChar(50)
+  phoneNumber          String?   @map("phone_number") @db.VarChar(30)
+  occupation           String?   @db.VarChar(100)
+  education            String?   @db.VarChar(100)
+  isAlive              Boolean   @default(true) @map("is_alive")
+  deathDate            DateTime? @map("death_date") @db.Date
+  isArchived           Boolean   @default(false) @map("is_archived")
+  createdBy            String    @map("created_by") @db.Uuid
+  updatedBy            String?   @map("updated_by") @db.Uuid
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  village              Village   @relation(fields: [villageId], references: [id], onDelete: Restrict)
+  creator              User      @relation("PersonCreator", fields: [createdBy], references: [id])
+  updater              User?     @relation("PersonUpdater", fields: [updatedBy], references: [id])
+
+  householdMemberships HouseholdMembership[]
+  headedHouseholds     Household[]           @relation("HouseholdHead")
+  householdEvents      HouseholdEvent[]
+  documents            PersonDocument[]
+
+  @@index([villageId, firstName, lastName])
+  @@index([birthDate])
+  @@index([isAlive])
+  @@map("persons")
+}
+
+// -------------------------------------------------------------
+// 3. Houses & Households Domain
+// -------------------------------------------------------------
+
+model House {
+  id             String    @id @default(uuid()) @db.Uuid
+  villageId      String    @map("village_id") @db.Uuid
+  houseNumber    String    @map("house_number") @db.VarChar(50)
+  subHouseNumber String?   @map("sub_house_number") @db.VarChar(50)
+  buildingType   String    @default("DETACHED") @map("building_type") @db.VarChar(50)
+  latitude       Decimal?  @db.Decimal(10, 8)
+  longitude      Decimal?  @db.Decimal(11, 8)
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  village        Village   @relation(fields: [villageId], references: [id], onDelete: Restrict)
+  households     Household[]
+  documents      HouseholdDocument[]
+
+  @@unique([villageId, houseNumber, subHouseNumber])
+  @@map("houses")
+}
+
+model Household {
+  id            String    @id @default(uuid()) @db.Uuid
+  villageId     String    @map("village_id") @db.Uuid
+  houseId       String    @map("house_id") @db.Uuid
+  householdCode String    @unique @map("household_code") @db.VarChar(30)
+  headPersonId  String?   @map("head_person_id") @db.Uuid
+  status        String    @default("ACTIVE") @db.VarChar(20) // ACTIVE, DISSOLVED
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  village       Village   @relation(fields: [villageId], references: [id], onDelete: Restrict)
+  house         House     @relation(fields: [houseId], references: [id], onDelete: Restrict)
+  headPerson    Person?   @relation("HouseholdHead", fields: [headPersonId], references: [id], onDelete: Restrict)
+
+  memberships   HouseholdMembership[]
+  sourceEvents  HouseholdEvent[]      @relation("SourceHousehold")
+  targetEvents  HouseholdEvent[]      @relation("TargetHousehold")
+  documents     HouseholdDocument[]
+
+  @@map("households")
+}
+
+model HouseholdMembership {
+  id                 String    @id @default(uuid()) @db.Uuid
+  householdId        String    @map("household_id") @db.Uuid
+  personId           String    @map("person_id") @db.Uuid
+  relationshipToHead String    @default("MEMBER") @map("relationship_to_head") @db.VarChar(50)
+  residenceType      String    @default("OFFICIAL") @map("residence_type") @db.VarChar(30) // OFFICIAL, ACTUAL_RESIDENT, OFFICIAL_ABSENT
+  isHead             Boolean   @default(false) @map("is_head")
+  joinedDate         DateTime  @default(now()) @map("joined_date") @db.Date
+  leftDate           DateTime? @map("left_date") @db.Date
+  isCurrent          Boolean   @default(true) @map("is_current")
+
+  household          Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  person             Person    @relation(fields: [personId], references: [id], onDelete: Restrict)
+
+  @@index([householdId, isCurrent])
+  @@index([personId, isCurrent])
+  @@map("household_memberships")
+}
+
+model HouseholdEvent {
+  id              String     @id @default(uuid()) @db.Uuid
+  villageId       String     @map("village_id") @db.Uuid
+  personId        String     @map("person_id") @db.Uuid
+  eventType       String     @map("event_type") @db.VarChar(30) // MOVE_IN, MOVE_OUT, TRANSFER, HEAD_CHANGE, STATUS_CHANGE
+  fromHouseholdId String?    @map("from_household_id") @db.Uuid
+  toHouseholdId   String?    @map("to_household_id") @db.Uuid
+  eventDate       DateTime   @default(now()) @map("event_date") @db.Timestamptz
+  reason          String?
+  recordedBy      String     @map("recorded_by") @db.Uuid
+
+  village         Village    @relation(fields: [villageId], references: [id], onDelete: Restrict)
+  person          Person     @relation(fields: [personId], references: [id], onDelete: Restrict)
+  fromHousehold   Household? @relation("SourceHousehold", fields: [fromHouseholdId], references: [id])
+  toHousehold     Household? @relation("TargetHousehold", fields: [toHouseholdId], references: [id])
+  recorder        User       @relation(fields: [recordedBy], references: [id])
+
+  @@index([villageId, eventDate])
+  @@map("household_events")
+}
+
+// -------------------------------------------------------------
+// 4. File & Document Storage Domain
+// -------------------------------------------------------------
+
+model File {
+  id             String    @id @default(uuid()) @db.Uuid
+  villageId      String    @map("village_id") @db.Uuid
+  storageBucket  String    @default("village-documents") @map("storage_bucket") @db.VarChar(50)
+  storagePath    String    @unique @map("storage_path")
+  originalName   String    @map("original_name") @db.VarChar(255)
+  mimeType       String    @map("mime_type") @db.VarChar(100)
+  fileSizeBytes  BigInt    @map("file_size_bytes")
+  checksumSha256 String    @map("checksum_sha256") @db.VarChar(64)
+  uploadedBy     String    @map("uploaded_by") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  village        Village   @relation(fields: [villageId], references: [id], onDelete: Restrict)
+  uploader       User      @relation(fields: [uploadedBy], references: [id])
+
+  personDocs     PersonDocument[]
+  householdDocs  HouseholdDocument[]
+
+  @@map("files")
+}
+
+model PersonDocument {
+  id           String   @id @default(uuid()) @db.Uuid
+  personId     String   @map("person_id") @db.Uuid
+  fileId       String   @map("file_id") @db.Uuid
+  documentType String   @map("document_type") @db.VarChar(50) // ID_CARD, BIRTH_CERT, OTHER
+  notes        String?
+
+  person       Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  file         File     @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  @@map("person_documents")
+}
+
+model HouseholdDocument {
+  id           String     @id @default(uuid()) @db.Uuid
+  houseId      String?    @map("house_id") @db.Uuid
+  householdId  String?    @map("household_id") @db.Uuid
+  fileId       String     @map("file_id") @db.Uuid
+  documentType String     @map("document_type") @db.VarChar(50) // HOUSE_REG_TR14, LAND_TITLE, OTHER
+
+  house        House?     @relation(fields: [houseId], references: [id], onDelete: Cascade)
+  household    Household? @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  file         File       @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  @@map("household_documents")
+}
+
+// -------------------------------------------------------------
+// 5. System, Security & Audit Domain
+// -------------------------------------------------------------
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  villageId  String?  @map("village_id") @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  module     String   @db.VarChar(50)
+  action     String   @db.VarChar(50) // CREATE, UPDATE, ARCHIVE, SENSITIVE_VIEW, EXPORT
+  entityType String   @map("entity_type") @db.VarChar(50)
+  entityId   String?  @map("entity_id") @db.Uuid
+  details    Json?
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  userAgent  String?  @map("user_agent")
+  status     String   @default("SUCCESS") @db.VarChar(20)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  village    Village? @relation(fields: [villageId], references: [id], onDelete: SetNull)
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([villageId, module, action, createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
+
+model SecurityEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  eventType String   @map("event_type") @db.VarChar(50) // LOGIN_FAILED, BRUTE_FORCE_BLOCKED
+  email     String?  @db.VarChar(255)
+  ipAddress String   @map("ip_address") @db.VarChar(45)
+  details   Json?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([email, createdAt])
+  @@index([ipAddress, createdAt])
+  @@map("security_events")
+}
